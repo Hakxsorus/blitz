@@ -45,6 +45,11 @@ pub(crate) fn app_dir_path() -> Option<PathBuf> {
     dirs::home_dir().map(|home_dir_path| home_dir_path.join("Blitz"))
 }
 
+/// Gets the [`PathBuf`] to the init file.
+pub(crate) fn init_path() -> Option<PathBuf> {
+    join_to_app_dir_path("init")
+}
+
 /// Gets the [`PathBuf`] to the blacklist file.
 pub(crate) fn blacklist_path() -> Option<PathBuf> {
     join_to_app_dir_path("blacklist.json")
@@ -78,12 +83,25 @@ fn join_to_app_dir_path(filename: &str) -> Option<PathBuf> {
     app_dir_path().map(|app_dir_path| app_dir_path.join(&filename))
 }
 
-/// Creates the app directory and blacklist (with default data) files if they do not exist.
-pub(crate) fn create_app_dir_and_blacklist_file() -> anyhow::Result<()> {
-    // Get the app directory path and create it if it doesn't exist.
+/// Creates the app directory if it does not exist.
+pub(crate) fn create_app_dir() -> anyhow::Result<()> {
     let app_dir_path = app_dir_path().ok_or(anyhow::anyhow!("Unable to construct the app directory path"))?;
     std::fs::create_dir_all(app_dir_path)?;
-    // Get the blacklist path and create it with default data if it doesn't exist.
+    Ok(())
+}
+
+/// Creates the init marker file if it does not exist to the app directory.
+pub(crate) fn create_init_file_if_not_exists() -> anyhow::Result<()> {
+    let init_path = init_path().ok_or(anyhow::anyhow!("Unable to construct the init path."))?;
+    if !init_path.exists() {
+        std::fs::File::create(&init_path)?;
+    }
+
+    Ok(())
+}
+
+/// Creates the blacklist file (with default data) file if it does not exist to the app directory.
+pub(crate) fn create_blacklist_file_if_not_exists() -> anyhow::Result<()> {
     let blacklist_path = blacklist_path().ok_or(anyhow::anyhow!("Unable construct the blacklist file path"))?;
     if !blacklist_path.exists() {
         let default_blacklist = blacklist::Blacklist::default();

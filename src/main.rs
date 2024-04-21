@@ -6,6 +6,7 @@ use std::error::Error;
 use std::io::Write;
 use colored::Colorize;
 use prettytable::{row, Table};
+use crate::detector::ScanInfo;
 
 const SCAN_COMMAND: &str = "scan";
 const EDIT_COMMAND: &str = "edit";
@@ -20,37 +21,45 @@ macro_rules! with_vertical_padding {
 
 #[tokio::main]
 async fn main() {
-    // Initialise the application if this is the first time running.
-    paths::create_app_dir_and_blacklist_file().unwrap();
+    // Initialise the necessary files if it's not already been done.
+    paths::create_app_dir().unwrap();
+    paths::create_init_file_if_not_exists().unwrap();
+    paths::create_blacklist_file_if_not_exists().unwrap();
     paths::download_rten_models().await.unwrap();
+
     // Parse the command line arguments.
     let args: Vec<String> = std::env::args().collect();
     let commands: Vec<&str> = args.iter().map(|s| s.as_str()).skip(1).collect();
     // Match the arguments against the commands.
     match commands.as_slice() {
         [SCAN_COMMAND] => {
-            let mut scans = detector::scan().expect("Unable to scan the RISK application.");
+            let scans = detector::scan().expect("Unable to scan RISK application.");
             let mut table = Table::new();
 
-            if scans.len() == 0 {
-                println!("{}", "No Morons Here (✿◠‿◠)".cyan());
+            let similar_scans: Vec<_> = scans
+                .iter()
+                .filter(|s| s.similarity >= 70)
+                .collect();
+
+            if similar_scans.len() == 0 {
+                with_vertical_padding!({
+                    println!("{}", "No Morons Here (✿◠‿◠)".cyan())
+                });
                 return;
             }
 
             table.add_row(row!["┌П┐(►˛◄’!)", "Username", "Probability"]);
-            scans.sort_by_key(|s| std::cmp::Reverse(s.similarity));
-            for scan_info in &scans {
-                if scan_info.similarity <= 70 {
-                    continue;
-                }
 
-                let display_moron =  "POSSIBLE MORON".red().bold().underline();
-                let display_username = scan_info.username.bright_cyan();
-                let display_match_score = format!("{}%", scan_info.similarity.to_string().underline());
+            for similar_scan in similar_scans {
+                let display_moron = "POSSIBLE MORON".red().bold().underline();
+                let display_username = similar_scan.username.bright_cyan();
+                let display_match_score = format!("{}%", similar_scan.similarity.to_string().underline());
                 table.add_row(row![display_moron, display_username, display_match_score]);
             }
 
-            with_vertical_padding!({table.printstd()})
+            with_vertical_padding!({
+                table.printstd()
+            });
         },
         [EDIT_COMMAND] => {
             let blacklist_path = paths::blacklist_path().unwrap();
