@@ -49,7 +49,6 @@ async fn main() {
             }
 
             table.add_row(row!["┌П┐(►˛◄’!)", "Username", "Probability"]);
-
             for similar_scan in similar_scans {
                 let display_moron = "POSSIBLE MORON".red().bold().underline();
                 let display_username = similar_scan.username.bright_cyan();
