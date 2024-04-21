@@ -6,7 +6,6 @@ use std::error::Error;
 use std::io::Write;
 use colored::Colorize;
 use prettytable::{row, Table};
-use crate::detector::ScanInfo;
 
 const SCAN_COMMAND: &str = "scan";
 const EDIT_COMMAND: &str = "edit";
