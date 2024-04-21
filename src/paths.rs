@@ -1,66 +1,145 @@
+//! This module contains functions for managing files, directories, and asynchronous file downloads.
+//!
+//! It includes functions for:
+//! - Getting paths to various files and directories within the application directory.
+//! - Creating the application directory and blacklist file if they don't exist.
+//! - Asynchronously downloading required RTEN (Real-Time Entity Recognition) models.
+//! - Asynchronously downloading files from URLs and saving them to specified paths.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use crate::paths::{
+//!     download_rten_models,
+//!     create_app_dir_and_blacklist_file
+//! };
+//!
+//! async fn initialize_app() -> anyhow::Result<()> {
+//!     // Ensure the app directory and blacklist file are created
+//!     create_app_dir_and_blacklist_file()?;
+//!     // Download required RTEN models asynchronously
+//!     download_rten_models().await?;
+//!     Ok(())
+//! }
+//! ```
+
 use std::error::Error;
-use std::fmt::format;
 use std::io::Write;
 use std::path::PathBuf;
-use crate::blacklist::{Blacklist, Moron};
-use crate::models;
+use crate::blacklist;
 
-const APP_DIR_NAME: &str = "risk-tracker";
-const BLACKLIST_FILE_NAME: &str = "blacklist.json";
-const RISK_APPLICATION_TITLE: &str = "RISK";
-const SCRSHOT_FILE_NAME: &str = "players.png";
-const PLAYER_SCRSHOT_FILE_NAME: &str = "crop-{}.png";
+/// The download URL for the OCRS detection model.
+const DETECTION_MODEL_URL: &str = "https://ocrs-models.s3-accelerate.amazonaws.com/text-detection.rten";
 
-pub fn app_dir_path() -> Result<PathBuf, Box<dyn Error>> {
-    let home_dir = dirs::home_dir().ok_or("Unable to determine home directory.")?;
-    Ok(home_dir.join(APP_DIR_NAME))
+/// The download URL for the OCRS recognition model.
+const RECOGNITION_MODEL_URL: &str = "https://ocrs-models.s3-accelerate.amazonaws.com/text-recognition.rten";
+
+/// The file name for the OCRS detection model.
+const DETECTION_MODEL_FILE_NAME: &str = "text-detection.rten";
+
+/// The file name for the OCRS recognition model.
+const RECOGNITION_MODEL_FILE_NAME: &str = "text-recognition.rten";
+
+/// Gets the [`PathBuf`] to the app directory.
+pub(crate) fn app_dir_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|home_dir_path| home_dir_path.join("Blitz"))
 }
 
-pub(crate) fn blacklist_path() -> Result<PathBuf, Box<dyn Error>> {
-    Ok(app_dir_path()?.join(BLACKLIST_FILE_NAME))
+/// Gets the [`PathBuf`] to the blacklist file.
+pub(crate) fn blacklist_path() -> Option<PathBuf> {
+    join_to_app_dir_path("blacklist.json")
 }
 
-pub(crate) fn scrshot_path() -> Result<PathBuf, Box<dyn Error>> {
-    Ok(app_dir_path()?.join(SCRSHOT_FILE_NAME))
+/// Gets the [`PathBuf`] to the screenshot file.
+pub(crate) fn scrshot_path() -> Option<PathBuf> {
+    join_to_app_dir_path("players.png")
 }
 
-pub(crate) fn player_scrshot_path(n: &u32) -> Result<PathBuf, Box<dyn Error>> {
-    let filename = PLAYER_SCRSHOT_FILE_NAME.replace("{}", &n.to_string());
-    Ok(app_dir_path()?.join(filename))
+/// Gets the [`PathBuf`] to a cropped screenshot file.
+pub(crate) fn player_scrshot_path(n: i32) -> Option<PathBuf> {
+    join_to_app_dir_path(format!("player-crop-{n}.png").as_str())
 }
 
-pub(crate) fn detection_model_path() -> Result<PathBuf, Box<dyn Error>> {
-    Ok(app_dir_path()?.join(models::DETECTION_MODEL_FILE_NAME))
+/// Gets the [`PathBuf`] to the detection model file.
+pub(crate) fn detection_model_path() -> Option<PathBuf> {
+    join_to_app_dir_path(DETECTION_MODEL_FILE_NAME)
 }
 
-pub(crate) fn recognition_model_path() -> Result<PathBuf, Box<dyn Error>> {
-    Ok(app_dir_path()?.join(models::RECOGNITION_MODEL_FILE_NAME))
+/// Gets the [`PathBuf`] to the recognition model file.
+pub(crate) fn recognition_model_path() -> Option<PathBuf> {
+    join_to_app_dir_path(RECOGNITION_MODEL_FILE_NAME)
 }
 
-pub fn create_app_dir_and_blacklist_file() -> Result<(), Box<dyn Error>> {
-    std::fs::create_dir_all(app_dir_path()?)?;
-    let blacklist_path = blacklist_path()?;
+/// Joins a file name to the app directory path and returns it as a [`PathBuf`].
+///
+/// # Arguments
+/// * `filename` - The name of the file to join.
+fn join_to_app_dir_path(filename: &str) -> Option<PathBuf> {
+    app_dir_path().map(|app_dir_path| app_dir_path.join(&filename))
+}
+
+/// Creates the app directory and blacklist (with default data) files if they do not exist.
+pub(crate) fn create_app_dir_and_blacklist_file() -> anyhow::Result<()> {
+    // Get the app directory path and create it if it doesn't exist.
+    let app_dir_path = app_dir_path().ok_or(anyhow::anyhow!("Unable to construct the app directory path"))?;
+    std::fs::create_dir_all(app_dir_path)?;
+    // Get the blacklist path and create it with default data if it doesn't exist.
+    let blacklist_path = blacklist_path().ok_or(anyhow::anyhow!("Unable construct the blacklist file path"))?;
     if !blacklist_path.exists() {
-        let default_blacklist = default_blacklist(&blacklist_path);
-        create_blacklist_file(&default_blacklist);
+        let default_blacklist = blacklist::Blacklist::default();
+        let default_blacklist_json = serde_json::to_string_pretty(&default_blacklist)?;
+        let mut default_blacklist_file = std::fs::File::create(&blacklist_path)?;
+        default_blacklist_file.write_all(&default_blacklist_json.as_ref())?;
     }
+
     Ok(())
 }
 
-fn default_blacklist(blacklist_path: &PathBuf) -> Blacklist {
-    let mut default_blacklist = Blacklist::new(blacklist_path);
-
-    // Add default moron entry
-    default_blacklist.morons.push(Moron {
-        username: "Copy and paste this block { } to add extra entries".to_string(),
-        reason: "Don't forget the comma after the }".to_string(),
-    });
-
-    default_blacklist
+/// Asynchronously downloads required RTEN (Real-Time Entity Recognition) models if they don't already
+/// exist locally. This function downloads both the detection and recognition models used for real-time
+/// entity recognition.
+pub(crate) async fn download_rten_models() -> Result<(), Box<dyn Error>> {
+    download_if_not_exists(DETECTION_MODEL_URL, DETECTION_MODEL_FILE_NAME).await?;
+    download_if_not_exists(RECOGNITION_MODEL_URL, RECOGNITION_MODEL_FILE_NAME).await?;
+    Ok(())
 }
 
-fn create_blacklist_file(default_blacklist: &Blacklist) {
-    let default_blacklist_json = serde_json::to_string_pretty(&default_blacklist).unwrap();
-    let mut blacklist_file = std::fs::File::create(&blacklist_path().unwrap()).unwrap();
-    blacklist_file.write_all(default_blacklist_json.as_ref()).unwrap();
+/// Asynchronously downloads a file from the specified URL if it doesn't already exist locally to
+/// the app directory.
+///
+/// # Parameters
+/// * `url`: A string slice representing the URL from which to download the file.
+/// * `filename`: A string slice representing the name of the file to be downloaded.
+async fn download_if_not_exists(
+    url: &str,
+    filename: &str,
+) -> anyhow::Result<()> {
+    let file_path = join_to_app_dir_path(&filename).ok_or(anyhow::anyhow!("Unable to construct the download path."))?;
+    if !file_path.exists() {
+        download_file(&url, &file_path).await?;
+    }
+
+    Ok(())
+}
+
+
+/// Asynchronously downloads a file from the given URL and saves it to the specified path.
+///
+/// # Arguments
+/// * `url`: A string slice representing the URL from which to download the file.
+/// * `path`: A [`PathBuf`] representing the path where the downloaded file should be saved.
+async fn download_file(
+    url: &str,
+    path: &PathBuf
+) -> anyhow::Result<()> {
+    let response = reqwest::get(url).await?;
+    if response.status().is_success() {
+        let mut file = std::fs::File::create(path)?;
+        let bytes = response.bytes().await?;
+        std::io::copy(&mut bytes.as_ref(), &mut file)?;
+    } else {
+        response.error_for_status()?;
+    }
+
+    Ok(())
 }

@@ -127,6 +127,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06c9989a51171e2e81038ab168b6ae22886fe9ded214430dbb4f41c28cf176da"
 
 [[package]]
+name = "blitz"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "colored",
+ "dirs",
+ "fuzzywuzzy",
+ "image 0.25.1",
+ "ocrs",
+ "open",
+ "prettytable-rs",
+ "reqwest",
+ "rten",
+ "rten-imageio",
+ "rten-tensor",
+ "serde",
+ "serde_json",
+ "tokio",
+ "xcap",
+]
+
+[[package]]
 name = "built"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -546,13 +568,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "fuzzy-matcher"
-version = "0.3.7"
+name = "fuzzywuzzy"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54614a3312934d066701a80f20f15fa3b56d67ac7722b39eea5b4c9dd1d66c94"
-dependencies = [
- "thread_local",
-]
+checksum = "c075dcf102b63d18ebeb6ee0e8680ca8ab06da01e73e45ff187f15ef18d50350"
 
 [[package]]
 name = "getrandom"
@@ -1535,28 +1554,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "risk-tracker"
-version = "0.1.0"
-dependencies = [
- "colored",
- "dirs",
- "fuzzy-matcher",
- "image 0.25.1",
- "ocrs",
- "open",
- "prettytable-rs",
- "reqwest",
- "rten",
- "rten-imageio",
- "rten-tensor",
- "serde",
- "serde_json",
- "term",
- "tokio",
- "xcap",
-]
-
-[[package]]
 name = "rten"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1920,16 +1917,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "thread_local"
-version = "1.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
-dependencies = [
- "cfg-if",
- "once_cell",
 ]
 
 [[package]]
